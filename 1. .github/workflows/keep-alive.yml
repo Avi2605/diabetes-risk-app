@@ -1,0 +1,15 @@
+name: Keep Streamlit App Awake
+
+on:
+  schedule:
+    - cron: '0 */4 * * *' # Automatically runs every 4 hours
+  workflow_dispatch: # Allows you to trigger it manually
+
+jobs:
+  keep-alive:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: gpenessot/streamlit-keep-alive@v1
+        with:
+          app-urls: |
+            https://diabetes-risk-app-2cuu4wbqt9bkdkbqryeg8r.streamlit.app/
