@@ -10,15 +10,17 @@ jobs:
   keep-alive:
     runs-on: ubuntu-latest
     steps:
-      - name: Check Streamlit response
+      - name: Inspect Streamlit response
         run: |
           URL="https://diabetes-risk-app-2cuu4wbqt9bkdkbqryeg8r.streamlit.app/"
 
           curl --silent --show-error \
-            --max-time 20 \
-            --output /dev/null \
-            --dump-header /tmp/headers.txt \
-            "$URL"
+            --location \
+            --max-redirs 5 \
+            --max-time 30 \
+            --output /tmp/response.html \
+            --write-out "\nFinal HTTP status: %{http_code}\nFinal URL: %{url_effective}\nRedirects: %{num_redirects}\n" \
+            "$URL" || true
 
-          echo "Response headers:"
-          cat /tmp/headers.txt
+          echo "Response title:"
+          grep -oiE '<title>[^<]*</title>' /tmp/response.html | head -1 || true
