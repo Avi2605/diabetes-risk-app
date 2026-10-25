@@ -23,61 +23,15 @@ jobs:
           playwright install --with-deps chromium
 
 
-      - name: Inspect and Wake Streamlit
-        run: |
-          python - <<'PY'
-          import time
-          from playwright.sync_api import sync_playwright
+     
+      - name: Upload diagnostic screenshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: streamlit-debug
+          path: /tmp/streamlit-debug.png
+          if-no-files-found: ignore
 
-          url = "https://diabetes-risk-app-2cuu4wbqt9bkdkbqryeg8r.streamlit.app/"
-
-          with sync_playwright() as p:
-              browser = p.chromium.launch()
-              page = browser.new_page()
-
-              try:
-                  print("Opening app...")
-                  page.goto(
-                      url,
-                      wait_until="domcontentloaded",
-                      timeout=120000
-                  )
-
-                  time.sleep(5)
-
-                  print("Page title:", page.title())
-                  print("Current URL:", page.url)
-
-                  wake_button = page.get_by_role(
-                      "button",
-                      name="Yes, get this app back up!",
-                      exact=False
-                  )
-
-                  if wake_button.count() and wake_button.first.is_visible():
-                      print("Sleeping page detected. Waking app...")
-                      wake_button.first.click()
-                      time.sleep(10)
-
-                  page.screenshot(
-                      path="/tmp/streamlit-debug.png",
-                      full_page=True
-                  )
-
-                  title = page.title()
-
-                  if "Diabetes Risk Checker" in title:
-                      print("App page detected successfully.")
-                      print("The previous failure was a detection issue.")
-                  else:
-                      print("Unexpected page title:", title)
-                      raise RuntimeError(
-                          "The expected app page was not detected."
-                      )
-
-              finally:
-                  browser.close()
-          PY
 
       - name: Upload diagnostic screenshot
         if: always()
