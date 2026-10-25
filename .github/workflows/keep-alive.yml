@@ -1,20 +1,11 @@
 
-name: Keep Streamlit App Awake
-
-on:
-  schedule:
-    - cron: "*/10 * * * *"
-  workflow_dispatch:
-
-jobs:
-  keep-alive:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Ping Streamlit App
+      - name: Diagnose Streamlit URL
         run: |
-          curl --fail --silent --show-error \
-            --location \
-            --max-time 30 \
-            "https://diabetes-risk-app-2cuu4wbqt9bkdkbqryeg8r.streamlit.app/" \
-            --output /dev/null
+          URL="https://diabetes-risk-app-2cuu4wbqt9bkdkbqryeg8r.streamlit.app/"
+
+          echo "Checking response without following redirects..."
+          curl --silent --show-error \
+            --max-time 20 \
+            --output /dev/null \
+            --dump-header - \
+            "$URL"
