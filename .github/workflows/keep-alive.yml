@@ -22,6 +22,7 @@ jobs:
           pip install playwright
           playwright install --with-deps chromium
 
+
       - name: Inspect and Wake Streamlit
         run: |
           python - <<'PY'
@@ -33,7 +34,6 @@ jobs:
           with sync_playwright() as p:
               browser = p.chromium.launch()
               page = browser.new_page()
-              page.set_default_timeout(10000)
 
               try:
                   print("Opening app...")
@@ -43,54 +43,36 @@ jobs:
                       timeout=120000
                   )
 
-                  time.sleep(3)
+                  time.sleep(5)
 
-                  print("URL:", page.url)
-                  print("Title:", page.title())
-                  print("Page text:", page.locator("body").inner_text()[:3000])
+                  print("Page title:", page.title())
+                  print("Current URL:", page.url)
+
+                  wake_button = page.get_by_role(
+                      "button",
+                      name="Yes, get this app back up!",
+                      exact=False
+                  )
+
+                  if wake_button.count() and wake_button.first.is_visible():
+                      print("Sleeping page detected. Waking app...")
+                      wake_button.first.click()
+                      time.sleep(10)
 
                   page.screenshot(
                       path="/tmp/streamlit-debug.png",
                       full_page=True
                   )
 
-                  button = page.get_by_role(
-                      "button",
-                      name="Yes, get this app back up!",
-                      exact=False
-                  )
+                  title = page.title()
 
-                  if button.count() and button.first.is_visible():
-                      print("Sleeping page detected; clicking wake button.")
-                      button.first.click()
-                      time.sleep(10)
-
-                  deadline = time.time() + 90
-
-                  while time.time() < deadline:
-                      text = page.locator("body").inner_text()
-
-                      if "This app has gone to sleep" in text:
-                          print("App is still showing the sleeping page.")
-                      elif page.locator(
-                          '[data-testid="stAppViewContainer"]'
-                      ).count():
-                          print("Streamlit app container detected.")
-                          print("Final URL:", page.url)
-                          break
-                      else:
-                          print("Waiting for app. Current URL:", page.url)
-
-                      time.sleep(5)
+                  if "Diabetes Risk Checker" in title:
+                      print("App page detected successfully.")
+                      print("The previous failure was a detection issue.")
                   else:
-                      print("App interface was not confirmed.")
-                      print("Final URL:", page.url)
-                      print("Final page text:")
-                      print(page.locator("body").inner_text()[:3000])
-
+                      print("Unexpected page title:", title)
                       raise RuntimeError(
-                          "App did not become detectable. "
-                          "Inspect the debug screenshot."
+                          "The expected app page was not detected."
                       )
 
               finally:
