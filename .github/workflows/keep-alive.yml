@@ -4,23 +4,85 @@ name: Keep Streamlit App Awake
 on:
   workflow_dispatch:
   schedule:
-    - cron: "*/10 * * * *"
+    - cron: "0 */6 * * *"
 
 jobs:
   keep-alive:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+
     steps:
-      - name: Inspect Streamlit response
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Playwright
         run: |
-          URL="https://diabetes-risk-app-2cuu4wbqt9bkdkbqryeg8r.streamlit.app/"
+          pip install playwright
+          playwright install --with-deps chromium
 
-          curl --silent --show-error \
-            --location \
-            --max-redirs 5 \
-            --max-time 30 \
-            --output /tmp/response.html \
-            --write-out "\nFinal HTTP status: %{http_code}\nFinal URL: %{url_effective}\nRedirects: %{num_redirects}\n" \
-            "$URL" || true
+      - name: Wake Streamlit App
+        run: |
+          python - <<'PY'
+          import time
+          from playwright.sync_api import sync_playwright
 
-          echo "Response title:"
-          grep -oiE '<title>[^<]*</title>' /tmp/response.html | head -1 || true
+          URL = (
+              "https://diabetes-risk-app-2cuu4wbqt9bkdkbqryeg8r"
+              ".streamlit.app/"
+          )
+
+          with sync_playwright() as p:
+              browser = p.chromium.launch()
+              page = browser.new_page()
+              page.set_default_timeout(15000)
+
+              try:
+                  print("Opening Streamlit app...")
+                  page.goto(
+                      URL,
+                      wait_until="domcontentloaded",
+                      timeout=120000
+                  )
+
+                  print("Current URL:", page.url)
+
+                  wake_button = page.get_by_role(
+                      "button",
+                      name="Yes, get this app back up!"
+                  )
+
+                  if wake_button.is_visible():
+                      print("Sleeping page detected. Clicking wake button...")
+                      wake_button.click()
+
+                  deadline = time.time() + 120
+
+                  while time.time() < deadline:
+                      if wake_button.is_visible():
+                          print("App is still sleeping or waking up...")
+                      else:
+                          app = page.locator(
+                              '[data-testid="stAppViewContainer"]'
+                          )
+
+                          if app.count() > 0 and app.is_visible():
+                              print("Streamlit app interface detected.")
+                              print("URL:", page.url)
+                              break
+
+                      time.sleep(5)
+                      page.reload(
+                          wait_until="domcontentloaded",
+                          timeout=120000
+                      )
+                  else:
+                      raise RuntimeError(
+                          "Could not confirm the app loaded. "
+                          "Check the workflow logs."
+                      )
+
+              finally:
+                  browser.close()
+          PY
