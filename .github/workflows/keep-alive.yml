@@ -1,4 +1,15 @@
 
+name: Keep Streamlit App Awake
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "*/10 * * * *"
+
+jobs:
+  keep-alive:
+    runs-on: ubuntu-latest
+    steps:
       - name: Diagnose Streamlit URL
         run: |
           URL="https://diabetes-risk-app-2cuu4wbqt9bkdkbqryeg8r.streamlit.app/"
