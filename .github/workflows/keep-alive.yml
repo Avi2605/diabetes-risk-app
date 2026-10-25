@@ -9,7 +9,7 @@ on:
 jobs:
   keep-alive:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
 
     steps:
       - name: Set up Python
@@ -22,67 +22,85 @@ jobs:
           pip install playwright
           playwright install --with-deps chromium
 
-      - name: Wake Streamlit App
+      - name: Inspect and Wake Streamlit
         run: |
           python - <<'PY'
           import time
           from playwright.sync_api import sync_playwright
 
-          URL = (
-              "https://diabetes-risk-app-2cuu4wbqt9bkdkbqryeg8r"
-              ".streamlit.app/"
-          )
+          url = "https://diabetes-risk-app-2cuu4wbqt9bkdkbqryeg8r.streamlit.app/"
 
           with sync_playwright() as p:
               browser = p.chromium.launch()
               page = browser.new_page()
-              page.set_default_timeout(15000)
+              page.set_default_timeout(10000)
 
               try:
-                  print("Opening Streamlit app...")
+                  print("Opening app...")
                   page.goto(
-                      URL,
+                      url,
                       wait_until="domcontentloaded",
                       timeout=120000
                   )
 
-                  print("Current URL:", page.url)
+                  time.sleep(3)
 
-                  wake_button = page.get_by_role(
-                      "button",
-                      name="Yes, get this app back up!"
+                  print("URL:", page.url)
+                  print("Title:", page.title())
+                  print("Page text:", page.locator("body").inner_text()[:3000])
+
+                  page.screenshot(
+                      path="/tmp/streamlit-debug.png",
+                      full_page=True
                   )
 
-                  if wake_button.is_visible():
-                      print("Sleeping page detected. Clicking wake button...")
-                      wake_button.click()
+                  button = page.get_by_role(
+                      "button",
+                      name="Yes, get this app back up!",
+                      exact=False
+                  )
 
-                  deadline = time.time() + 120
+                  if button.count() and button.first.is_visible():
+                      print("Sleeping page detected; clicking wake button.")
+                      button.first.click()
+                      time.sleep(10)
+
+                  deadline = time.time() + 90
 
                   while time.time() < deadline:
-                      if wake_button.is_visible():
-                          print("App is still sleeping or waking up...")
-                      else:
-                          app = page.locator(
-                              '[data-testid="stAppViewContainer"]'
-                          )
+                      text = page.locator("body").inner_text()
 
-                          if app.count() > 0 and app.is_visible():
-                              print("Streamlit app interface detected.")
-                              print("URL:", page.url)
-                              break
+                      if "This app has gone to sleep" in text:
+                          print("App is still showing the sleeping page.")
+                      elif page.locator(
+                          '[data-testid="stAppViewContainer"]'
+                      ).count():
+                          print("Streamlit app container detected.")
+                          print("Final URL:", page.url)
+                          break
+                      else:
+                          print("Waiting for app. Current URL:", page.url)
 
                       time.sleep(5)
-                      page.reload(
-                          wait_until="domcontentloaded",
-                          timeout=120000
-                      )
                   else:
+                      print("App interface was not confirmed.")
+                      print("Final URL:", page.url)
+                      print("Final page text:")
+                      print(page.locator("body").inner_text()[:3000])
+
                       raise RuntimeError(
-                          "Could not confirm the app loaded. "
-                          "Check the workflow logs."
+                          "App did not become detectable. "
+                          "Inspect the debug screenshot."
                       )
 
               finally:
                   browser.close()
           PY
+
+      - name: Upload diagnostic screenshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: streamlit-debug
+          path: /tmp/streamlit-debug.png
+          if-no-files-found: ignore
