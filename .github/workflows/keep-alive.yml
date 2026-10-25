@@ -1,15 +1,20 @@
+
 name: Keep Streamlit App Awake
 
 on:
   schedule:
-    - cron: '0 */4 * * *'
+    - cron: "*/10 * * * *"
   workflow_dispatch:
 
 jobs:
   keep-alive:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: gpenessot/streamlit-keep-alive@v1
-        with:
-          app-urls: |
-            https://diabetes-risk-app-2cuu4wbqt9bkdkbqryeg8r.streamlit.app/
+      - name: Ping Streamlit App
+        run: |
+          curl --fail --silent --show-error \
+            --location \
+            --max-time 30 \
+            "https://diabetes-risk-app-2cuu4wbqt9bkdkbqryeg8r.streamlit.app/" \
+            --output /dev/null
