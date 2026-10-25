@@ -10,13 +10,21 @@ jobs:
   keep-alive:
     runs-on: ubuntu-latest
     steps:
-      - name: Diagnose Streamlit URL
+      - name: Ping Streamlit App
         run: |
           URL="https://diabetes-risk-app-2cuu4wbqt9bkdkbqryeg8r.streamlit.app/"
 
-          echo "Checking response without following redirects..."
+          echo "Checking app response..."
           curl --silent --show-error \
-            --max-time 20 \
-            --output /dev/null \
-            --dump-header - \
+            --location \
+            --max-redirs 5 \
+            --max-time 60 \
+            --output /tmp/response.html \
+            --write-out "\nHTTP status: %{http_code}\nFinal URL: %{url_effective}\n" \
             "$URL"
+
+          echo "Checking response content..."
+          if grep -qi "gone to sleep\|get this app back up" /tmp/response.html; then
+            echo "App is sleeping; the ping did not wake it."
+            exit 1
+          fi
